@@ -56,7 +56,9 @@ def new(
 
         last_migration_dir = None
         for d in migration_location.iterdir():
-            if is_valid_migration_directory(d) and compare_migration_folder_name_with_version(
+            if is_valid_migration_directory(
+                d
+            ) and compare_migration_folder_name_with_version(
                 version=last_version.info.version,
                 full_folder_name=d.name,
             ):
@@ -94,7 +96,9 @@ async def upgrade(
         return
 
     migration_location = cast(Path, config.get_migration_dir)
-    logger.info("upgrade", revision=revision, migration_location=str(migration_location))
+    logger.info(
+        "upgrade", revision=revision, migration_location=str(migration_location)
+    )
 
     migration_list = MigrationChain(migration_location)
     migration_list.build_list()
@@ -104,7 +108,10 @@ async def upgrade(
             await create_migratino_table(conn)
     except Exception as e:
         logger.error(
-            "upgrade", error="Failed to create migration table", details=str(e), exc_info=True
+            "upgrade",
+            error="Failed to create migration table",
+            details=str(e),
+            exc_info=True,
         )
         return
 
@@ -113,12 +120,17 @@ async def upgrade(
             current_version = await get_current_db_migration_version(conn)
     except Exception as e:
         logger.error(
-            "upgrade", error="Failed to retrieve migration version", details=str(e), exc_info=True
+            "upgrade",
+            error="Failed to retrieve migration version",
+            details=str(e),
+            exc_info=True,
         )
         return
 
     if current_version is None:
-        logger.error("upgrade", error="Failed to get current version, aborting migration")
+        logger.error(
+            "upgrade", error="Failed to get current version, aborting migration"
+        )
         return
 
     if not migration_list.head:
@@ -138,7 +150,9 @@ async def upgrade(
         else:
             current_migration = migration_list.find_by_version(current_version)
             if not current_migration:
-                raise ValueError(f"Current version {current_version} not found in migration chain")
+                raise ValueError(
+                    f"Current version {current_version} not found in migration chain"
+                )
             migration = current_migration.next
 
         while migration:
@@ -158,7 +172,9 @@ async def upgrade(
 
     if migrations_to_run:
         logger.info(
-            "upgrade", message="Starting migration execution", versions_count=len(migrations_to_run)
+            "upgrade",
+            message="Starting migration execution",
+            versions_count=len(migrations_to_run),
         )
     else:
         logger.info("upgrade", message="no migration to run")
@@ -174,7 +190,9 @@ async def upgrade(
             )
         logger.info("upgrade", message="Migration execution completed successfully")
     except Exception as e:
-        logger.error("upgrade", error="Migration execution failed", details=str(e), exc_info=True)
+        logger.error(
+            "upgrade", error="Migration execution failed", details=str(e), exc_info=True
+        )
         return
 
 
