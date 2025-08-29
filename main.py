@@ -4,8 +4,10 @@ from pathlib import Path
 from typing import Annotated, cast
 
 from asynch import Connection
-from cannonball_writer.server.settings import settings
 from cyclopts import App, Parameter
+
+from src.env import settings
+from src.logger import setup_logging
 from src.migration_chain import MigrationChain
 from src.schema import MigrationInfo
 from src.utils import (
@@ -18,8 +20,6 @@ from src.utils import (
     run_migration,
 )
 
-from src.logging import setup_logging
-
 app = App(name="ch-migrate")
 
 setup_logging("hermes.log")
@@ -29,7 +29,9 @@ setup_logging("hermes.log")
 def new(
     *,
     message: Annotated[str, Parameter(name=("--message", "-m"))],
-    config_path: Annotated[str, Parameter(name="--config-path")] = "migration.toml",
+    config_path: Annotated[
+        str, Parameter(name="--config-path")
+    ] = "migration.toml",
 ):
     version = uuid.uuid4().hex
     config = load_config(config_path)
@@ -38,7 +40,7 @@ def new(
     migration_list = MigrationChain(migration_location)
     migration_list.build_list()
 
-    target_dir = migration_location / f"{version}--{message.replace(' ', '_')}"
+    target_dir = migration_location / f"{version}--{message.replace(" ", "_")}"
     target_dir.mkdir()
 
     migration_info = MigrationInfo(
@@ -67,9 +69,13 @@ def new(
 
         if last_migration_dir:
             last_info_file = last_migration_dir / "info.json"
-            last_info_file.write_text(last_version.info.model_dump_json(indent=4))
+            last_info_file.write_text(
+                last_version.info.model_dump_json(indent=4)
+            )
 
-    (target_dir / "info.json").write_text(migration_info.model_dump_json(indent=4))
+    (target_dir / "info.json").write_text(
+        migration_info.model_dump_json(indent=4)
+    )
     (target_dir / "upgrade.sql").touch()
     (target_dir / "downgrade.sql").touch()
 
@@ -81,7 +87,9 @@ async def upgrade(
     revision: str,
     /,
     *,
-    config_path: Annotated[str, Parameter(name="--config-path")] = "migration.toml",
+    config_path: Annotated[
+        str, Parameter(name="--config-path")
+    ] = "migration.toml",
 ):
     try:
         config = load_config(config_path)
@@ -104,7 +112,7 @@ async def upgrade(
     migration_list.build_list()
 
     try:
-        async with Connection(dsn=settings.CLICKHOUSE_DSN) as conn:
+        async with Connection(dsn=settings.clickhouse_url) as conn:
             await create_migratino_table(conn)
     except Exception as e:
         logger.error(
@@ -116,7 +124,7 @@ async def upgrade(
         return
 
     try:
-        async with Connection(dsn=settings.CLICKHOUSE_DSN) as conn:
+        async with Connection(dsn=settings.clickhouse_url) as conn:
             current_version = await get_current_db_migration_version(conn)
     except Exception as e:
         logger.error(
@@ -162,10 +170,14 @@ async def upgrade(
     else:
         target_migration = migration_list.find_by_version(revision)
         if not target_migration:
-            raise ValueError(f"Target version {revision} not found in migration chain")
+            raise ValueError(
+                f"Target version {revision} not found in migration chain"
+            )
 
         if revision == current_version:
-            logger.info("run-migration", message=f"Already at version {revision}")
+            logger.info(
+                "run-migration", message=f"Already at version {revision}"
+            )
             return
 
         migrations_to_run = [target_migration]
@@ -181,17 +193,22 @@ async def upgrade(
         return
 
     try:
-        async with Connection(dsn=settings.CLICKHOUSE_DSN) as conn:
+        async with Connection(dsn=settings.clickhouse_url) as conn:
             await run_migration(
                 versions=migrations_to_run,
                 versions_dir=migration_location,
                 mode="upgrade",
                 connection=conn,
             )
-        logger.info("upgrade", message="Migration execution completed successfully")
+        logger.info(
+            "upgrade", message="Migration execution completed successfully"
+        )
     except Exception as e:
         logger.error(
-            "upgrade", error="Migration execution failed", details=str(e), exc_info=True
+            "upgrade",
+            error="Migration execution failed",
+            details=str(e),
+            exc_info=True,
         )
         return
 
@@ -199,9 +216,13 @@ async def upgrade(
 @app.command
 async def test(
     *,
-    clickhouse_version: Annotated[str, Parameter(name="--clickhouse-version")] = "25.5",
+    clickhouse_version: Annotated[
+        str, Parameter(name="--clickhouse-version")
+    ] = "25.5",
     debug: Annotated[bool, Parameter(name="--debug")] = False,
-    config_path: Annotated[str, Parameter(name="--config-path")] = "migration.toml",
+    config_path: Annotated[
+        str, Parameter(name="--config-path")
+    ] = "migration.toml",
 ):
     """
     Test migrations using ClickHouse test containers.
