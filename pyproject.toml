@@ -1,0 +1,63 @@
+[project]
+name = "hermes"
+version = "0.1.0"
+description = "Add your description here"
+readme = "README.md"
+requires-python = ">=3.12"
+dependencies = [
+    "asynch>=0.3.0",
+    "pydantic>=2.11.7",
+    "structlog>=25.4.0",
+]
+
+
+[tool.ruff.lint]
+select = [
+    # flake8-2020
+    "YTT",
+    # flake8-bandit
+    "S",
+    # flake8-bugbear
+    "B",
+    # flake8-builtins
+    "A",
+    # flake8-comprehensions
+    "C4",
+    # flake8-debugger
+    "T10",
+    # flake8-simplify
+    "SIM",
+    # isort
+    "I",
+    # pycodestyle
+    "E", "W",
+    # pyflakes
+    "F",
+    # pygrep-hooks
+    "PGH",
+    # pyupgrade
+    "UP",
+    # ruff
+    "RUF",
+    # tryceratops
+    "TRY",
+]
+ignore = [
+    # LineTooLong
+    "E501",
+    # DoNotAssignLambda
+    "E731",
+    "TRY002",
+    "TRY003",
+]
+
+[tool.ruff.format]
+preview = true
+
+[dependency-groups]
+dev = [
+    "podman-compose>=1.5.0",
+    "pre-commit>=4.3.0",
+    "ruff>=0.12.11",
+]
+
