@@ -29,7 +29,10 @@ extend-select = ["I"]
 dev = [
     "podman-compose>=1.5.0",
     "pre-commit>=4.3.0",
+    "pytest>=8.4.1",
+    "pytest-asyncio>=1.1.0",
     "ruff>=0.12.11",
+    "testcontainers[clickhouse]>=4.12.0",
 ]
 
 [build-system]
@@ -40,4 +43,15 @@ build-backend = "hatchling.build"
 include = [
   "*",
   "LICENSE",
+]
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+testpaths = ["src/tests"]
+python_files = ["test_*.py"]
+python_classes = ["Test*"]
+python_functions = ["test_*"]
+addopts = "-v --tb=short"
+markers = [
+    "integration: marks tests as integration tests (deselect with '-m \"not integration\"')"
 ]

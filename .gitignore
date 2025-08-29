@@ -2,7 +2,6 @@
 .ruff_cache
 
 docs/source
-*test.py
 *.log*
 
 postgres_data
