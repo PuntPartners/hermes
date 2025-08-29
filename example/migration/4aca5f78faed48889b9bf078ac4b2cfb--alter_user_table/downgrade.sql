@@ -1,0 +1,4 @@
+ALTER TABLE user
+DROP COLUMN email,
+DROP COLUMN age,
+DROP COLUMN created_at;

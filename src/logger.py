@@ -1,6 +1,5 @@
 import json
 import logging
-import os
 
 import structlog
 
@@ -34,9 +33,7 @@ class UnstructuredLoggingFormatter(logging.Formatter):
         return " | ".join(message_parts)
 
 
-def setup_logging(
-    filename: str | None = None, level: int | None = None
-) -> None:
+def setup_logging(filename: str, level: int) -> None:
     root_logger = logging.getLogger()
     for handler in root_logger.handlers[:]:
         root_logger.removeHandler(handler)
@@ -52,7 +49,7 @@ def setup_logging(
         handlers.append(file_handler)
 
     logging.basicConfig(
-        level=level or os.environ.get("LOG_LEVEL", logging.INFO),
+        level=level,
         format="%(message)s",
         handlers=handlers,
     )
