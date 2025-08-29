@@ -14,8 +14,12 @@ class MigrationInfo(BaseModel):
 
 
 class MigrationConfig(BaseModel):
-    migrations_location: str | Path = Field(default="versions", alias="migrations-location")
-    log_level: Literal["debug", "info", "warning", "error", "critical"] = Field(default="info")
+    migrations_location: str | Path = Field(
+        default="versions", alias="migrations-location"
+    )
+    log_level: Literal["debug", "info", "warning", "error", "critical"] = Field(
+        default="info"
+    )
 
     @property
     def get_migration_dir(self) -> Path:

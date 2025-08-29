@@ -3,11 +3,12 @@ from datetime import datetime
 from pathlib import Path
 from typing import Annotated, cast
 
+import structlog
 from asynch import Connection
 from cyclopts import App, Parameter
 
 from src.env import settings
-from src.logger import setup_logging
+from src.logger import LoggerType, setup_logging
 from src.migration_chain import MigrationChain
 from src.schema import MigrationInfo
 from src.utils import (
@@ -16,13 +17,10 @@ from src.utils import (
     get_current_db_migration_version,
     is_valid_migration_directory,
     load_config,
-    logger,
     run_migration,
 )
 
 app = App(name="ch-migrate")
-
-setup_logging("hermes.log")
 
 
 @app.command
@@ -33,11 +31,14 @@ def new(
         str, Parameter(name="--config-path")
     ] = "migration.toml",
 ):
-    version = uuid.uuid4().hex
     config = load_config(config_path)
+    setup_logging("hermes.log", level=config.get_log_level)
+    logger: LoggerType = structlog.get_logger()
+
+    version = uuid.uuid4().hex
     migration_location = cast(Path, config.get_migration_dir)
 
-    migration_list = MigrationChain(migration_location)
+    migration_list = MigrationChain(migration_location, logger)
     migration_list.build_list()
 
     target_dir = migration_location / f"{version}--{message.replace(" ", "_")}"
@@ -59,7 +60,8 @@ def new(
         last_migration_dir = None
         for d in migration_location.iterdir():
             if is_valid_migration_directory(
-                d
+                d,
+                logger,
             ) and compare_migration_folder_name_with_version(
                 version=last_version.info.version,
                 full_folder_name=d.name,
@@ -91,29 +93,23 @@ async def upgrade(
         str, Parameter(name="--config-path")
     ] = "migration.toml",
 ):
-    try:
-        config = load_config(config_path)
-    except FileNotFoundError as e:
-        logger.error(
-            "upgrade",
-            error="Config file not found",
-            path=config_path,
-            details=str(e),
-            exc_info=True,
-        )
-        return
+    config = load_config(config_path)
+    setup_logging("hermes.log", level=config.get_log_level)
+    logger: LoggerType = structlog.get_logger()
+
+    config = load_config(config_path)
 
     migration_location = cast(Path, config.get_migration_dir)
     logger.info(
         "upgrade", revision=revision, migration_location=str(migration_location)
     )
 
-    migration_list = MigrationChain(migration_location)
+    migration_list = MigrationChain(migration_location, logger)
     migration_list.build_list()
 
     try:
         async with Connection(dsn=settings.clickhouse_url) as conn:
-            await create_migratino_table(conn)
+            await create_migratino_table(conn, logger)
     except Exception as e:
         logger.error(
             "upgrade",
@@ -125,7 +121,9 @@ async def upgrade(
 
     try:
         async with Connection(dsn=settings.clickhouse_url) as conn:
-            current_version = await get_current_db_migration_version(conn)
+            current_version = await get_current_db_migration_version(
+                conn, logger
+            )
     except Exception as e:
         logger.error(
             "upgrade",
@@ -199,6 +197,7 @@ async def upgrade(
                 versions_dir=migration_location,
                 mode="upgrade",
                 connection=conn,
+                logger=logger,
             )
         logger.info(
             "upgrade", message="Migration execution completed successfully"

@@ -1,7 +1,6 @@
 import json
 import logging
 import os
-from logging.handlers import TimedRotatingFileHandler
 
 import structlog
 
@@ -35,7 +34,9 @@ class UnstructuredLoggingFormatter(logging.Formatter):
         return " | ".join(message_parts)
 
 
-def setup_logging(filename: str | None = None, level: int | None = None) -> None:
+def setup_logging(
+    filename: str | None = None, level: int | None = None
+) -> None:
     root_logger = logging.getLogger()
     for handler in root_logger.handlers[:]:
         root_logger.removeHandler(handler)
@@ -46,9 +47,7 @@ def setup_logging(filename: str | None = None, level: int | None = None) -> None
     handlers = [console_handler]
 
     if filename is not None:
-        file_handler = TimedRotatingFileHandler(
-            filename, when="midnight", interval=1, backupCount=30
-        )
+        file_handler = logging.FileHandler(filename)
         file_handler.setFormatter(logging.Formatter("%(message)s"))
         handlers.append(file_handler)
 
