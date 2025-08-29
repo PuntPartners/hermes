@@ -244,6 +244,4 @@ async def execute_sql_statements(
                     exc_info=True,
                 )
                 return False
-            else:
-                return True
-    return False
+    return True

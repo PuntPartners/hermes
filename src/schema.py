@@ -18,7 +18,7 @@ class MigrationConfig(BaseModel):
         default="versions", alias="migrations-location"
     )
     log_level: Literal["debug", "info", "warning", "error", "critical"] = Field(
-        default="info"
+        default="info", alias="log-level"
     )
     log_to_file: bool = Field(default=True, alias="log-to-file")
     log_to_stream: bool = Field(default=True, alias="log-to-stream")
