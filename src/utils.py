@@ -91,10 +91,18 @@ async def run_migration(
         ):
             return
 
-        if not await update_migration_version(
-            connection, migration_node.info.version, logger
-        ):
-            return
+        if mode == "upgrade":
+            if not await update_migration_version(
+                connection, migration_node.info.version, logger
+            ):
+                return
+        else:  # downgrade
+            # For downgrade, update to previous version (or empty string for base)
+            previous_version = migration_node.info.previous_version or ""
+            if not await update_migration_version(
+                connection, previous_version, logger
+            ):
+                return
 
 
 def is_valid_migration_directory(path: Path, logger: LoggerType) -> bool:

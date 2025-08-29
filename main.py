@@ -1,7 +1,7 @@
 import uuid
 from datetime import datetime
 from pathlib import Path
-from typing import Annotated, cast
+from typing import Annotated, TypedDict, cast
 
 import structlog
 from asynch import Connection
@@ -20,7 +20,71 @@ from src.utils import (
     run_migration,
 )
 
-app = App(name="ch-migrate")
+app = App(name="hermes")
+
+
+class MigrationContext(TypedDict):
+    logger: LoggerType
+    migration_location: Path
+    migration_list: MigrationChain
+    current_version: str
+
+
+async def initialize_migration_context(
+    config_path: str, operation: str
+) -> MigrationContext | None:
+    config = load_config(config_path)
+    setup_logging("hermes.log", level=config.get_log_level)
+    logger: LoggerType = structlog.get_logger()
+
+    migration_location = cast(Path, config.get_migration_dir)
+    logger.info(
+        operation,
+        migration_location=str(migration_location),
+    )
+
+    migration_list = MigrationChain(migration_location, logger)
+    migration_list.build_list()
+
+    try:
+        async with Connection(dsn=settings.clickhouse_url) as conn:
+            await create_migratino_table(conn, logger)
+    except Exception as e:
+        logger.error(
+            operation,
+            error="Failed to create migration table",
+            details=str(e),
+            exc_info=True,
+        )
+        return None
+
+    try:
+        async with Connection(dsn=settings.clickhouse_url) as conn:
+            current_version = await get_current_db_migration_version(
+                conn, logger
+            )
+    except Exception as e:
+        logger.error(
+            operation,
+            error="Failed to retrieve migration version",
+            details=str(e),
+            exc_info=True,
+        )
+        return None
+
+    if current_version is None:
+        logger.error(
+            operation,
+            error="Failed to get current version, aborting migration",
+        )
+        return None
+
+    return MigrationContext(
+        logger=logger,
+        migration_location=migration_location,
+        migration_list=migration_list,
+        current_version=current_version,
+    )
 
 
 @app.command
@@ -93,57 +157,15 @@ async def upgrade(
         str, Parameter(name="--config-path")
     ] = "migration.toml",
 ):
-    config = load_config(config_path)
-    setup_logging("hermes.log", level=config.get_log_level)
-    logger: LoggerType = structlog.get_logger()
-
-    config = load_config(config_path)
-
-    migration_location = cast(Path, config.get_migration_dir)
-    logger.info(
-        "upgrade", revision=revision, migration_location=str(migration_location)
-    )
-
-    migration_list = MigrationChain(migration_location, logger)
-    migration_list.build_list()
-
-    try:
-        async with Connection(dsn=settings.clickhouse_url) as conn:
-            await create_migratino_table(conn, logger)
-    except Exception as e:
-        logger.error(
-            "upgrade",
-            error="Failed to create migration table",
-            details=str(e),
-            exc_info=True,
-        )
+    context = await initialize_migration_context(config_path, "upgrade")
+    if context is None:  # Error occurred during initialization
         return
 
-    try:
-        async with Connection(dsn=settings.clickhouse_url) as conn:
-            current_version = await get_current_db_migration_version(
-                conn, logger
-            )
-    except Exception as e:
-        logger.error(
-            "upgrade",
-            error="Failed to retrieve migration version",
-            details=str(e),
-            exc_info=True,
-        )
-        return
-
-    if current_version is None:
-        logger.error(
-            "upgrade", error="Failed to get current version, aborting migration"
-        )
-        return
-
-    if not migration_list.head:
-        return
-
-    if not migration_list.tail:
-        return
+    logger = context["logger"]
+    migration_location = context["migration_location"]
+    migration_list = context["migration_list"]
+    current_version = context["current_version"]
+    logger.info("upgrade", revision=revision)
 
     if revision == "head":
         if migration_list.tail.info.version == current_version:
@@ -206,6 +228,104 @@ async def upgrade(
         logger.error(
             "upgrade",
             error="Migration execution failed",
+            details=str(e),
+            exc_info=True,
+        )
+        return
+
+
+@app.command
+async def downgrade(
+    revision: str,
+    /,
+    *,
+    config_path: Annotated[
+        str, Parameter(name="--config-path")
+    ] = "migration.toml",
+):
+    context = await initialize_migration_context(config_path, "downgrade")
+    if context is None:
+        return
+
+    logger = context["logger"]
+    migration_location = context["migration_location"]
+    migration_list = context["migration_list"]
+    current_version = context["current_version"]
+    logger.info("downgrade", revision=revision)
+
+    if not current_version:
+        logger.info(
+            "downgrade", message="Already at base (no migrations applied)"
+        )
+        return
+
+    current_migration = migration_list.find_by_version(current_version)
+    if not current_migration:
+        logger.error(
+            "downgrade",
+            error=f"Current version {current_version} not found in migration chain",
+        )
+        return
+
+    migrations_to_run = []
+
+    if revision == "base":
+        migration = current_migration
+        while migration:
+            migrations_to_run.append(migration)
+            migration = migration.previous
+    else:
+        target_migration = migration_list.find_by_version(revision)
+        if not target_migration:
+            logger.error(
+                "downgrade",
+                error=f"Target version {revision} not found in migration chain",
+            )
+            return
+
+        if revision == current_version:
+            logger.info("downgrade", message=f"Already at version {revision}")
+            return
+
+        # Build list of migrations to downgrade (from current to target, exclusive)
+        migration = current_migration
+        while migration and migration.info.version != revision:
+            migrations_to_run.append(migration)
+            migration = migration.previous
+
+        if not migration:
+            logger.error(
+                "downgrade",
+                error=f"Cannot reach target version {revision} from current version {current_version}",
+            )
+            return
+
+    if migrations_to_run:
+        logger.info(
+            "downgrade",
+            message="Starting migration downgrade",
+            versions_count=len(migrations_to_run),
+        )
+    else:
+        logger.info("downgrade", message="no migration to run")
+        return
+
+    try:
+        async with Connection(dsn=settings.clickhouse_url) as conn:
+            await run_migration(
+                versions=migrations_to_run,
+                versions_dir=migration_location,
+                mode="downgrade",
+                connection=conn,
+                logger=logger,
+            )
+        logger.info(
+            "downgrade", message="Migration downgrade completed successfully"
+        )
+    except Exception as e:
+        logger.error(
+            "downgrade",
+            error="Migration downgrade failed",
             details=str(e),
             exc_info=True,
         )
