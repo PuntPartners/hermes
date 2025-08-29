@@ -1,15 +1,15 @@
+import tomllib
 import typing
 from pathlib import Path
 from typing import Literal
 
 import structlog
-import tomllib
 from asynch import Connection
 
-from migration.schema import MigrationConfig
+from src.schema import MigrationConfig
 
 if typing.TYPE_CHECKING:
-    from migration.migration_chain import MigrationNode
+    from src.migration_chain import MigrationNode
 
 
 logger: structlog.stdlib.BoundLogger = structlog.get_logger()
@@ -82,7 +82,9 @@ async def run_migration(
             )
             return
 
-        if not await execute_sql_statements(connection, statements, migration_node.info.version):
+        if not await execute_sql_statements(
+            connection, statements, migration_node.info.version
+        ):
             return
 
         if not await update_migration_version(connection, migration_node.info.version):
@@ -108,7 +110,9 @@ def is_valid_migration_directory(path: Path) -> bool:
     downgrade_file = path / "downgrade.sql"
 
     if not upgrade_file.is_file() or not downgrade_file.is_file():
-        logger.warn("Migration directory is missing upgrade or downgrade file", dir=str(path))
+        logger.warn(
+            "Migration directory is missing upgrade or downgrade file", dir=str(path)
+        )
         return False
 
     return True
@@ -170,9 +174,13 @@ async def update_migration_version(connection: Connection, version: str) -> bool
     try:
         async with connection.cursor() as cursor:
             await cursor.execute("TRUNCATE TABLE ch_migrations;")
-            await cursor.execute("INSERT INTO ch_migrations (version) VALUES", [(version,)])
+            await cursor.execute(
+                "INSERT INTO ch_migrations (version) VALUES", [(version,)]
+            )
             logger.info(
-                "update-migration-version", message="Updated migration table", version=version
+                "update-migration-version",
+                message="Updated migration table",
+                version=version,
             )
             return True
     except Exception as e:

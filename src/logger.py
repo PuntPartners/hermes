@@ -65,7 +65,9 @@ def setup_logging(filename: str | None = None, level: int | None = None) -> None
             structlog.processors.format_exc_info,
             structlog.stdlib.add_log_level,
             structlog.processors.TimeStamper(fmt="iso"),
-            structlog.processors.CallsiteParameterAdder(parameters=[CallsiteParameter.FUNC_NAME]),
+            structlog.processors.CallsiteParameterAdder(
+                parameters=[CallsiteParameter.FUNC_NAME]
+            ),
             structlog.stdlib.filter_by_level,
             structlog.processors.JSONRenderer(),
         ],
@@ -74,7 +76,3 @@ def setup_logging(filename: str | None = None, level: int | None = None) -> None
         wrapper_class=structlog.stdlib.BoundLogger,
         cache_logger_on_first_use=True,
     )
-    logging.getLogger("boto3").setLevel(logging.CRITICAL)
-    logging.getLogger("uvicorn.error").disabled = True
-    logging.getLogger("uvicorn.access").disabled = True
-    logging.getLogger("paramiko").setLevel(logging.CRITICAL)

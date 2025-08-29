@@ -4,13 +4,11 @@ from pathlib import Path
 from typing import Annotated, cast
 
 from asynch import Connection
-from cyclopts import App, Parameter
-
-from cannonball_writer.logging import setup_logging
 from cannonball_writer.server.settings import settings
-from migration.migration_chain import MigrationChain
-from migration.schema import MigrationInfo
-from migration.utils import (
+from cyclopts import App, Parameter
+from src.migration_chain import MigrationChain
+from src.schema import MigrationInfo
+from src.utils import (
     compare_migration_folder_name_with_version,
     create_migratino_table,
     get_current_db_migration_version,
@@ -20,9 +18,11 @@ from migration.utils import (
     run_migration,
 )
 
+from src.logging import setup_logging
+
 app = App(name="ch-migrate")
 
-setup_logging("cannonball-writer-migration.log")
+setup_logging("hermes.log")
 
 
 @app.command

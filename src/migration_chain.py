@@ -4,8 +4,11 @@ from typing import Union
 import structlog
 from pydantic import BaseModel, Field
 
-from migration.schema import MigrationInfo
-from migration.utils import compare_migration_folder_name_with_version, is_valid_migration_directory
+from src.schema import MigrationInfo
+from src.utils import (
+    compare_migration_folder_name_with_version,
+    is_valid_migration_directory,
+)
 
 logger: structlog.stdlib.BoundLogger = structlog.get_logger()
 
@@ -59,7 +62,9 @@ class MigrationChain:
                 ):
                     continue
                 info_file = d / "info.json"
-                migration_info = MigrationInfo.model_validate_json(info_file.read_text())
+                migration_info = MigrationInfo.model_validate_json(
+                    info_file.read_text()
+                )
                 current_migration.next = MigrationNode(
                     previous=current_migration,
                     next=None,
