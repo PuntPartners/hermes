@@ -16,6 +16,20 @@ class MigrationNode(BaseModel):
     next: Union["MigrationNode", None] = Field(default=None)
     info: MigrationInfo
 
+    def __repr__(self) -> str:
+        repr_text = ""
+        if self.previous:
+            repr_text += f"previous: {self.previous.info.version} "
+        else:
+            repr_text += "previous: None "
+        if self.next:
+            repr_text += f"next: {self.next.info.version} "
+        else:
+            repr_text += "next: None "
+
+        repr_text += f"version: {self.info.version}"
+        return repr_text
+
 
 class MigrationChain:
     def __init__(self, migrations_dir: Path, logger: LoggerType):
@@ -51,7 +65,6 @@ class MigrationChain:
         )
         current_migration = self._find_first_migration(migration_dirs)
         if not current_migration:
-            self._logger.warn("No migrations found")
             return
 
         self.head = current_migration
@@ -84,21 +97,6 @@ class MigrationChain:
                 break
         self.tail = current_migration
         self._is_initialized = True
-
-    def append(self, node: MigrationNode) -> None:
-        if not self._is_initialized:
-            self.build_list()
-
-        if self.head is None:
-            self.head = node
-            return
-
-        current = self.head
-        while current.next:
-            current = current.next
-
-        current.next = node
-        node.previous = current
 
     def find_by_version(self, version: str) -> MigrationNode | None:
         if not self._is_initialized:
