@@ -332,26 +332,5 @@ async def downgrade(
         return
 
 
-@app.command
-async def test(
-    *,
-    clickhouse_version: Annotated[
-        str, Parameter(name="--clickhouse-version")
-    ] = "25.5",
-    debug: Annotated[bool, Parameter(name="--debug")] = False,
-    config_path: Annotated[
-        str, Parameter(name="--config-path")
-    ] = "migration.toml",
-):
-    """
-    Test migrations using ClickHouse test containers.
-
-    :param clickhouse_version: ClickHouse version to use (default: 25.5)
-    :param debug: Enable debug mode to show container logs
-    """
-    # await run_test_migrations(clickhouse_version, debug=debug)
-    return
-
-
 if __name__ == "__main__":
     app()
