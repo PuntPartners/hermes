@@ -33,23 +33,35 @@ class UnstructuredLoggingFormatter(logging.Formatter):
         return " | ".join(message_parts)
 
 
-def setup_logging(filename: str, level: int) -> None:
+def setup_logging(
+    filename: str | None = None,
+    level: int | None = None,
+    log_to_file: bool = True,
+    log_to_stream: bool = True,
+) -> None:
     root_logger = logging.getLogger()
     for handler in root_logger.handlers[:]:
         root_logger.removeHandler(handler)
 
-    console_handler = logging.StreamHandler()
-    console_handler.setFormatter(UnstructuredLoggingFormatter())
+    handlers = []
 
-    handlers = [console_handler]
+    if log_to_stream:
+        console_handler = logging.StreamHandler()
+        console_handler.setFormatter(UnstructuredLoggingFormatter())
+        handlers.append(console_handler)
 
-    if filename is not None:
+    if log_to_file and filename is not None:
         file_handler = logging.FileHandler(filename)
         file_handler.setFormatter(logging.Formatter("%(message)s"))
         handlers.append(file_handler)
 
+    if not handlers:
+        console_handler = logging.StreamHandler()
+        console_handler.setFormatter(UnstructuredLoggingFormatter())
+        handlers.append(console_handler)
+
     logging.basicConfig(
-        level=level,
+        level=level or logging.INFO,
         format="%(message)s",
         handlers=handlers,
     )

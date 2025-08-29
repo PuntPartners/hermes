@@ -34,7 +34,12 @@ async def initialize_migration_context(
     config_path: str, operation: str
 ) -> MigrationContext | None:
     config = load_config(config_path)
-    setup_logging("hermes.log", level=config.get_log_level)
+    setup_logging(
+        filename=str(config.log_file_path) if config.log_to_file else None,
+        level=config.get_log_level,
+        log_to_file=config.log_to_file,
+        log_to_stream=config.log_to_stream,
+    )
     logger: LoggerType = structlog.get_logger()
 
     migration_location = cast(Path, config.get_migration_dir)
@@ -93,12 +98,16 @@ def new(
     message: Annotated[str, Parameter(name=("--message", "-m"))],
     config_path: Annotated[
         str, Parameter(name="--config-path")
-    ] = "migration.toml",
+    ] = "hermes.toml",
 ):
     config = load_config(config_path)
-    setup_logging("hermes.log", level=config.get_log_level)
+    setup_logging(
+        filename=str(config.log_file_path) if config.log_to_file else None,
+        level=config.get_log_level,
+        log_to_file=config.log_to_file,
+        log_to_stream=config.log_to_stream,
+    )
     logger: LoggerType = structlog.get_logger()
-
     version = uuid.uuid4().hex
     migration_location = cast(Path, config.get_migration_dir)
 
@@ -155,7 +164,7 @@ async def upgrade(
     *,
     config_path: Annotated[
         str, Parameter(name="--config-path")
-    ] = "migration.toml",
+    ] = "hermes.toml",
 ):
     context = await initialize_migration_context(config_path, "upgrade")
     if context is None:  # Error occurred during initialization
@@ -241,7 +250,7 @@ async def downgrade(
     *,
     config_path: Annotated[
         str, Parameter(name="--config-path")
-    ] = "migration.toml",
+    ] = "hermes.toml",
 ):
     context = await initialize_migration_context(config_path, "downgrade")
     if context is None:
@@ -287,7 +296,6 @@ async def downgrade(
             logger.info("downgrade", message=f"Already at version {revision}")
             return
 
-        # Build list of migrations to downgrade (from current to target, exclusive)
         migration = current_migration
         while migration and migration.info.version != revision:
             migrations_to_run.append(migration)
