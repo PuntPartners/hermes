@@ -38,7 +38,7 @@ class Settings(BaseSettings):
 
         if missing_params:
             raise ValueError(
-                f"Missing required ClickHouse parameters: {", ".join(missing_params)}"
+                f"Missing required ClickHouse parameters: {', '.join(missing_params)}"
             )
 
         url = "clickhouse://"

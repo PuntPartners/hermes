@@ -114,7 +114,7 @@ def new(
     migration_list = MigrationChain(migration_location, logger)
     migration_list.build_list()
 
-    target_dir = migration_location / f"{version}--{message.replace(" ", "_")}"
+    target_dir = migration_location / f"{version}--{message.replace(' ', '_')}"
     target_dir.mkdir()
 
     migration_info = MigrationInfo(
