@@ -4,7 +4,6 @@ import os
 from logging.handlers import TimedRotatingFileHandler
 
 import structlog
-from structlog.processors import CallsiteParameter
 
 LoggerType = structlog.stdlib.BoundLogger
 
@@ -65,9 +64,6 @@ def setup_logging(filename: str | None = None, level: int | None = None) -> None
             structlog.processors.format_exc_info,
             structlog.stdlib.add_log_level,
             structlog.processors.TimeStamper(fmt="iso"),
-            structlog.processors.CallsiteParameterAdder(
-                parameters=[CallsiteParameter.FUNC_NAME]
-            ),
             structlog.stdlib.filter_by_level,
             structlog.processors.JSONRenderer(),
         ],
