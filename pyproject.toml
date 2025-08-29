@@ -56,3 +56,15 @@ addopts = "-v --tb=short"
 markers = [
     "integration: marks tests as integration tests (deselect with '-m \"not integration\"')"
 ]
+
+[tool.coverage.run]
+source = ["src"]
+omit = [
+    "*/tests/*",
+    "*/migration/*",
+	"types.py",
+	"schema.py",
+	"__init__.py",
+	"logger.py",
+	"env.py",
+]
