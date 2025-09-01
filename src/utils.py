@@ -3,7 +3,6 @@ import typing
 from pathlib import Path
 from typing import Literal
 
-import structlog
 from asynch import Connection
 
 from src.schema import MigrationConfig
@@ -12,7 +11,7 @@ if typing.TYPE_CHECKING:
     from src.migration_chain import MigrationNode
 
 
-logger: structlog.stdlib.BoundLogger = structlog.get_logger()
+from src.logger import LoggerType
 
 
 async def run_migration(
@@ -20,8 +19,11 @@ async def run_migration(
     versions_dir: Path,
     mode: Literal["upgrade", "downgrade"],
     connection: Connection,
+    logger: LoggerType,
 ) -> None:
-    logger.info("run-migration", mode=mode, versions=[v.info.version for v in versions])
+    logger.info(
+        "run-migration", mode=mode, versions=[v.info.version for v in versions]
+    )
 
     for migration_node in versions:
         migration_dir = None
@@ -70,7 +72,9 @@ async def run_migration(
             )
             return
 
-        statements = [stmt.strip() for stmt in sql_content.split(";") if stmt.strip()]
+        statements = [
+            stmt.strip() for stmt in sql_content.split(";") if stmt.strip()
+        ]
 
         if not statements:
             logger.error(
@@ -83,21 +87,33 @@ async def run_migration(
             return
 
         if not await execute_sql_statements(
-            connection, statements, migration_node.info.version
+            connection, statements, migration_node.info.version, logger
         ):
             return
 
-        if not await update_migration_version(connection, migration_node.info.version):
-            return
+        if mode == "upgrade":
+            if not await update_migration_version(
+                connection, migration_node.info.version, logger
+            ):
+                return
+        else:  # downgrade
+            # For downgrade, update to previous version (or empty string for base)
+            previous_version = migration_node.info.previous_version or ""
+            if not await update_migration_version(
+                connection, previous_version, logger
+            ):
+                return
 
 
-def is_valid_migration_directory(path: Path) -> bool:
+def is_valid_migration_directory(path: Path, logger: LoggerType) -> bool:
     if not path.is_dir():
         logger.warn("Migration directory is not a directory", dir=str(path))
         return False
 
     if "--" not in path.name:
-        logger.warn("Migration directory name does not contain '--'", dir=str(path))
+        logger.warn(
+            "Migration directory name does not contain '--'", dir=str(path)
+        )
         return False
 
     info_file = path / "info.json"
@@ -111,14 +127,17 @@ def is_valid_migration_directory(path: Path) -> bool:
 
     if not upgrade_file.is_file() or not downgrade_file.is_file():
         logger.warn(
-            "Migration directory is missing upgrade or downgrade file", dir=str(path)
+            "Migration directory is missing upgrade or downgrade file",
+            dir=str(path),
         )
         return False
 
     return True
 
 
-def compare_migration_folder_name_with_version(*, version: str, full_folder_name: str):
+def compare_migration_folder_name_with_version(
+    *, version: str, full_folder_name: str
+):
     split_name = full_folder_name.split("--")
     return split_name[0] == version
 
@@ -134,7 +153,7 @@ def load_config(config_path: str) -> MigrationConfig:
     return MigrationConfig.model_validate(toml_data)
 
 
-async def create_migratino_table(connection: Connection):
+async def create_migratino_table(connection: Connection, logger: LoggerType):
     try:
         async with connection.cursor() as cursor:
             await cursor.execute("""CREATE TABLE IF NOT EXISTS ch_migrations
@@ -152,7 +171,10 @@ ENGINE = TinyLog;
         )
 
 
-async def get_current_db_migration_version(connection: Connection) -> str | None:
+async def get_current_db_migration_version(
+    connection: Connection,
+    logger: LoggerType,
+) -> str | None:
     try:
         async with connection.cursor() as cursor:
             await cursor.execute("select version from ch_migrations;")
@@ -170,7 +192,9 @@ async def get_current_db_migration_version(connection: Connection) -> str | None
         return None
 
 
-async def update_migration_version(connection: Connection, version: str) -> bool:
+async def update_migration_version(
+    connection: Connection, version: str, logger: LoggerType
+) -> bool:
     try:
         async with connection.cursor() as cursor:
             await cursor.execute("TRUNCATE TABLE ch_migrations;")
@@ -195,7 +219,10 @@ async def update_migration_version(connection: Connection, version: str) -> bool
 
 
 async def execute_sql_statements(
-    connection: Connection, statements: list[str], migration_version: str
+    connection: Connection,
+    statements: list[str],
+    migration_version: str,
+    logger: LoggerType,
 ) -> bool:
     async with connection.cursor() as cursor:
         for i, statement in enumerate(statements, 1):
@@ -217,6 +244,4 @@ async def execute_sql_statements(
                     exc_info=True,
                 )
                 return False
-            else:
-                return True
-    return False
+    return True

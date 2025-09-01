@@ -1,16 +1,14 @@
 from pathlib import Path
 from typing import Union
 
-import structlog
 from pydantic import BaseModel, Field
 
+from src.logger import LoggerType
 from src.schema import MigrationInfo
 from src.utils import (
     compare_migration_folder_name_with_version,
     is_valid_migration_directory,
 )
-
-logger: structlog.stdlib.BoundLogger = structlog.get_logger()
 
 
 class MigrationNode(BaseModel):
@@ -18,18 +16,37 @@ class MigrationNode(BaseModel):
     next: Union["MigrationNode", None] = Field(default=None)
     info: MigrationInfo
 
+    def __repr__(self) -> str:
+        repr_text = ""
+        if self.previous:
+            repr_text += f"previous: {self.previous.info.version} "
+        else:
+            repr_text += "previous: None "
+        if self.next:
+            repr_text += f"next: {self.next.info.version} "
+        else:
+            repr_text += "next: None "
+
+        repr_text += f"version: {self.info.version}"
+        return repr_text
+
 
 class MigrationChain:
-    def __init__(self, migrations_dir: Path):
+    def __init__(self, migrations_dir: Path, logger: LoggerType):
         self.head: MigrationNode | None = None
         self.tail: MigrationNode | None = None
         self._is_initialized = False
         self._versions_dir = migrations_dir
+        self._logger = logger
 
-    def _find_first_migration(self, migration_dirs: list[Path]) -> MigrationNode | None:
+    def _find_first_migration(
+        self, migration_dirs: list[Path]
+    ) -> MigrationNode | None:
         for d in migration_dirs:
             info_file = d / "info.json"
-            migration_info = MigrationInfo.model_validate_json(info_file.read_text())
+            migration_info = MigrationInfo.model_validate_json(
+                info_file.read_text()
+            )
             if not migration_info.previous_version:
                 return MigrationNode(
                     info=migration_info,
@@ -42,13 +59,12 @@ class MigrationChain:
 
         migration_dirs = list(
             filter(
-                lambda d: is_valid_migration_directory(d),
+                lambda d: is_valid_migration_directory(d, self._logger),
                 self._versions_dir.iterdir(),
             )
         )
         current_migration = self._find_first_migration(migration_dirs)
         if not current_migration:
-            logger.warn("No migrations found")
             return
 
         self.head = current_migration
@@ -75,27 +91,12 @@ class MigrationChain:
                 break
 
             if not found_next:
-                logger.error(
+                self._logger.error(
                     f"Migration chain broken: next_version {current_migration.info.next_version} not found"
                 )
                 break
         self.tail = current_migration
         self._is_initialized = True
-
-    def append(self, node: MigrationNode) -> None:
-        if not self._is_initialized:
-            self.build_list()
-
-        if self.head is None:
-            self.head = node
-            return
-
-        current = self.head
-        while current.next:
-            current = current.next
-
-        current.next = node
-        node.previous = current
 
     def find_by_version(self, version: str) -> MigrationNode | None:
         if not self._is_initialized:

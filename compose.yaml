@@ -1,0 +1,17 @@
+services:
+  clickhouse:
+    image: clickhouse/clickhouse-server:25.4
+    restart: unless-stopped
+    ports:
+      - "8123:8123"
+      - "9002:9000"
+    environment:
+      CLICKHOUSE_DB: default
+      CLICKHOUSE_USER: test
+      CLICKHOUSE_PASSWORD: test
+    volumes:
+      - ./clickhouse_data:/var/lib/clickhouse
+    ulimits:
+      nofile:
+        soft: 262144
+        hard: 262144

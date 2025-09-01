@@ -2,7 +2,6 @@
 .ruff_cache
 
 docs/source
-*test.py
 *.log*
 
 postgres_data
@@ -19,6 +18,8 @@ __pycache__/
 
 # C extensions
 *.so
+
+.env
 
 # Distribution / packaging
 .Python

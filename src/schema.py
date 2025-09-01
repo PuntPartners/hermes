@@ -7,15 +7,24 @@ from pydantic import BaseModel, Field
 
 class MigrationInfo(BaseModel):
     message: str
-    version: str = Field()
+    version: str
     previous_version: str | None
     next_version: str | None
     creation_date: str
 
 
 class MigrationConfig(BaseModel):
-    migrations_location: str | Path = Field(default="versions", alias="migrations-location")
-    log_level: Literal["debug", "info", "warning", "error", "critical"] = Field(default="info")
+    migrations_location: str | Path = Field(
+        default="versions", alias="migrations-location"
+    )
+    log_level: Literal["debug", "info", "warning", "error", "critical"] = Field(
+        default="info", alias="log-level"
+    )
+    log_to_file: bool = Field(default=True, alias="log-to-file")
+    log_to_stream: bool = Field(default=True, alias="log-to-stream")
+    log_file_path: str | Path = Field(
+        default="hermes.log", alias="log-file-path"
+    )
 
     @property
     def get_migration_dir(self) -> Path:
