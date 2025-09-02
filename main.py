@@ -1,16 +1,17 @@
 import uuid
 from datetime import datetime
 from pathlib import Path
-from typing import Annotated, TypedDict, cast
+from typing import Annotated, Optional, TypedDict, cast
 
 import structlog
+import toml
 from asynch import Connection
 from cyclopts import App, Parameter
 
 from src.env import settings
 from src.logger import LoggerType, setup_logging
 from src.migration_chain import MigrationChain
-from src.schema import MigrationInfo
+from src.schema import MigrationConfig, MigrationInfo
 from src.utils import (
     compare_migration_folder_name_with_version,
     create_migratino_table,
@@ -89,6 +90,40 @@ async def initialize_migration_context(
         migration_location=migration_location,
         migration_list=migration_list,
         current_version=current_version,
+    )
+
+
+@app.command
+def init(
+    folder_name: Optional[str] = None,
+    /,
+):
+    setup_logging()
+    logger: LoggerType = structlog.get_logger()
+
+    config_path = Path.cwd() / "hermes.toml"
+
+    if config_path.exists():
+        logger.error(
+            "init",
+            error="Configuration file already exists",
+            path=str(config_path),
+        )
+        return
+
+    default_config = MigrationConfig()
+    if folder_name:
+        default_config.migrations_location = folder_name
+    config_dict = default_config.model_dump(by_alias=True)
+
+    with open(config_path, "w") as f:
+        toml.dump(config_dict, f)
+
+    logger.info(
+        "init",
+        message="Initialized hermes project",
+        folder=folder_name,
+        config_path=str(config_path),
     )
 
 
