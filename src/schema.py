@@ -8,8 +8,8 @@ from pydantic import BaseModel, Field
 class MigrationInfo(BaseModel):
     message: str
     version: str
-    previous_version: str | None
-    next_version: str | None
+    previous_version: str | None = Field(default=None)
+    next_version: str | None = Field(default=None)
     creation_date: str
 
 

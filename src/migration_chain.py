@@ -1,6 +1,7 @@
 from pathlib import Path
 from typing import Union
 
+import toml
 from pydantic import BaseModel, Field
 
 from src.logger import LoggerType
@@ -43,10 +44,10 @@ class MigrationChain:
         self, migration_dirs: list[Path]
     ) -> MigrationNode | None:
         for d in migration_dirs:
-            info_file = d / "info.json"
-            migration_info = MigrationInfo.model_validate_json(
-                info_file.read_text()
-            )
+            info_file = d / "info.toml"
+            with open(info_file, "r") as f:
+                info_data = toml.load(f)
+            migration_info = MigrationInfo.model_validate(info_data)
             if not migration_info.previous_version:
                 return MigrationNode(
                     info=migration_info,
@@ -77,10 +78,10 @@ class MigrationChain:
                     full_folder_name=d.name,
                 ):
                     continue
-                info_file = d / "info.json"
-                migration_info = MigrationInfo.model_validate_json(
-                    info_file.read_text()
-                )
+                info_file = d / "info.toml"
+                with open(info_file, "r") as f:
+                    info_data = toml.load(f)
+                migration_info = MigrationInfo.model_validate(info_data)
                 current_migration.next = MigrationNode(
                     previous=current_migration,
                     next=None,
