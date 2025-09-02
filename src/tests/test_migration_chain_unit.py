@@ -1,8 +1,9 @@
 from pathlib import Path
 
-import pydantic
 import pytest
 import structlog
+import toml
+from toml import TomlDecodeError
 
 from src.logger import LoggerType
 from src.migration_chain import MigrationChain, MigrationNode
@@ -127,9 +128,8 @@ class TestMigrationChain:
             creation_date="2024-01-01T00:00:00",
         )
 
-        (migration_dir / "info.json").write_text(
-            migration_info.model_dump_json()
-        )
+        with open(migration_dir / "info.toml", "w") as f:
+            toml.dump(migration_info.model_dump(by_alias=True), f)
         (migration_dir / "upgrade.sql").write_text("CREATE TABLE users();")
         (migration_dir / "downgrade.sql").write_text("DROP TABLE users;")
 
@@ -168,9 +168,8 @@ class TestMigrationChain:
                 creation_date="2024-01-01T00:00:00",
             )
 
-            (migration_dir / "info.json").write_text(
-                migration_info.model_dump_json()
-            )
+            with open(migration_dir / "info.toml", "w") as f:
+                toml.dump(migration_info.model_dump(by_alias=True), f)
             (migration_dir / "upgrade.sql").write_text(f"-- {message}")
             (migration_dir / "downgrade.sql").write_text(
                 f"-- rollback {message}"
@@ -210,9 +209,8 @@ class TestMigrationChain:
             creation_date="2024-01-01T00:00:00",
         )
 
-        (migration_dir / "info.json").write_text(
-            migration_info.model_dump_json()
-        )
+        with open(migration_dir / "info.toml", "w") as f:
+            toml.dump(migration_info.model_dump(by_alias=True), f)
         (migration_dir / "upgrade.sql").write_text("CREATE TABLE users();")
         (migration_dir / "downgrade.sql").write_text("DROP TABLE users;")
 
@@ -250,9 +248,8 @@ class TestMigrationChain:
                 creation_date="2024-01-01T00:00:00",
             )
 
-            (migration_dir / "info.json").write_text(
-                migration_info.model_dump_json()
-            )
+            with open(migration_dir / "info.toml", "w") as f:
+                toml.dump(migration_info.model_dump(by_alias=True), f)
             (migration_dir / "upgrade.sql").write_text(f"-- {message}")
             (migration_dir / "downgrade.sql").write_text(
                 f"-- rollback {message}"
@@ -288,11 +285,11 @@ class TestMigrationChain:
         migrations_dir = tmp_path / "migrations"
         migrations_dir.mkdir()
 
-        # Create invalid migration directory (no info.json)
+        # Create invalid migration directory (no info.toml)
         invalid_dir = migrations_dir / "v001--invalid"
         invalid_dir.mkdir()
         (invalid_dir / "upgrade.sql").write_text("CREATE TABLE test();")
-        # Missing info.json and downgrade.sql
+        # Missing info.toml and downgrade.sql
 
         # Create valid migration directory
         valid_dir = migrations_dir / "v002--valid"
@@ -306,7 +303,8 @@ class TestMigrationChain:
             creation_date="2024-01-01T00:00:00",
         )
 
-        (valid_dir / "info.json").write_text(migration_info.model_dump_json())
+        with open(valid_dir / "info.toml", "w") as f:
+            toml.dump(migration_info.model_dump(by_alias=True), f)
         (valid_dir / "upgrade.sql").write_text("CREATE TABLE valid();")
         (valid_dir / "downgrade.sql").write_text("DROP TABLE valid;")
 
@@ -337,9 +335,8 @@ class TestMigrationChain:
             creation_date="2024-01-01T00:00:00",
         )
 
-        (migration_dir / "info.json").write_text(
-            migration_info.model_dump_json()
-        )
+        with open(migration_dir / "info.toml", "w") as f:
+            toml.dump(migration_info.model_dump(by_alias=True), f)
         (migration_dir / "upgrade.sql").write_text("CREATE TABLE users();")
         (migration_dir / "downgrade.sql").write_text("DROP TABLE users;")
 
@@ -359,17 +356,17 @@ class TestMigrationChain:
         assert first_head == second_head == third_head
         assert chain._is_initialized is True
 
-    def test_malformed_info_json_ignored(
+    def test_malformed_info_toml_ignored(
         self, tmp_path: Path, mock_logger: LoggerType
     ):
-        """Test that directories with malformed info.json are ignored."""
+        """Test that directories with malformed info.toml are ignored."""
         migrations_dir = tmp_path / "migrations"
         migrations_dir.mkdir()
 
-        # Create migration with malformed JSON
+        # Create migration with malformed TOML
         bad_migration_dir = migrations_dir / "v001--bad_json"
         bad_migration_dir.mkdir()
-        (bad_migration_dir / "info.json").write_text("invalid json content")
+        (bad_migration_dir / "info.toml").write_text("invalid toml content [")
         (bad_migration_dir / "upgrade.sql").write_text("CREATE TABLE test();")
         (bad_migration_dir / "downgrade.sql").write_text("DROP TABLE test;")
 
@@ -385,14 +382,13 @@ class TestMigrationChain:
             creation_date="2024-01-01T00:00:00",
         )
 
-        (good_migration_dir / "info.json").write_text(
-            migration_info.model_dump_json()
-        )
+        with open(good_migration_dir / "info.toml", "w") as f:
+            toml.dump(migration_info.model_dump(by_alias=True), f)
         (good_migration_dir / "upgrade.sql").write_text("CREATE TABLE good();")
         (good_migration_dir / "downgrade.sql").write_text("DROP TABLE good;")
 
         chain = MigrationChain(migrations_dir, mock_logger)
 
-        # Should handle the malformed JSON gracefully and only include valid migration
-        with pytest.raises(pydantic.ValidationError):
+        # Should handle the malformed TOML gracefully and only include valid migration
+        with pytest.raises(TomlDecodeError):
             chain.build_list()
