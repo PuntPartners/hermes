@@ -178,14 +178,12 @@ def new(
                 break
 
         if last_migration_dir:
-            last_info_file = last_migration_dir / "info.json"
-            last_info_file.write_text(
-                last_version.info.model_dump_json(indent=4)
-            )
+            last_info_file = last_migration_dir / "info.toml"
+            with open(last_info_file, "w") as f:
+                toml.dump(last_version.info.model_dump(by_alias=True), f)
 
-    (target_dir / "info.json").write_text(
-        migration_info.model_dump_json(indent=4)
-    )
+    with open(target_dir / "info.toml", "w") as f:
+        toml.dump(migration_info.model_dump(by_alias=True), f)
     (target_dir / "upgrade.sql").touch()
     (target_dir / "downgrade.sql").touch()
 

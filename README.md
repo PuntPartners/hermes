@@ -161,7 +161,7 @@ When you create a new migration, Hermes generates a directory structure:
 ```
 migrations/
  abc123def456_create_users_table/
-     info.json        # Migration metadata
+     info.toml        # Migration metadata
      upgrade.sql      # Forward migration SQL
      downgrade.sql    # Rollback migration SQL
 ```

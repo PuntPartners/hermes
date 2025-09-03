@@ -1,6 +1,7 @@
 from pathlib import Path
 
 import pytest
+import toml
 from asynch import Connection
 
 from src.env import Settings
@@ -176,7 +177,8 @@ class TestMigrationDirectoryValidation:
         migration_dir = tmp_path / "version123--create_table"
         migration_dir.mkdir()
 
-        (migration_dir / "info.json").write_text('{"version": "123"}')
+        with open(migration_dir / "info.toml", "w") as f:
+            toml.dump({"version": "123"}, f)
         (migration_dir / "upgrade.sql").write_text("CREATE TABLE test();")
         (migration_dir / "downgrade.sql").write_text("DROP TABLE test;")
 
@@ -193,14 +195,14 @@ class TestMigrationDirectoryValidation:
         assert is_valid_migration_directory(migration_dir, test_logger) is False
 
     @pytest.mark.integration
-    def test_is_valid_migration_directory_missing_info_json(
+    def test_is_valid_migration_directory_missing_info_toml(
         self, tmp_path: Path, test_logger: LoggerType
     ):
-        """Test validation fails when info.json is missing."""
+        """Test validation fails when info.toml is missing."""
         migration_dir = tmp_path / "version123--create_table"
         migration_dir.mkdir()
 
-        # Create SQL files but not info.json
+        # Create SQL files but not info.toml
         (migration_dir / "upgrade.sql").write_text("CREATE TABLE test();")
         (migration_dir / "downgrade.sql").write_text("DROP TABLE test;")
 
@@ -214,8 +216,9 @@ class TestMigrationDirectoryValidation:
         migration_dir = tmp_path / "version123--create_table"
         migration_dir.mkdir()
 
-        # Create info.json but not SQL files
-        (migration_dir / "info.json").write_text('{"version": "123"}')
+        # Create info.toml but not SQL files
+        with open(migration_dir / "info.toml", "w") as f:
+            toml.dump({"version": "123"}, f)
 
         assert is_valid_migration_directory(migration_dir, test_logger) is False
 
@@ -248,7 +251,8 @@ class TestMigrationExecution:
             creation_date="2024-01-01T00:00:00",
         )
 
-        (migration_dir / "info.json").write_text(info.model_dump_json())
+        with open(migration_dir / "info.toml", "w") as f:
+            toml.dump(info.model_dump(by_alias=True), f)
         (migration_dir / "upgrade.sql").write_text(
             f"CREATE TABLE {message} (id UInt32) ENGINE = Memory;"
         )

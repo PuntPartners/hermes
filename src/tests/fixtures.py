@@ -24,7 +24,8 @@ class ClickHouseConfig:
         return f"clickhouse://{self.user}:{self.password}@{self.host}:{self.port}/{self.database}"
 
 
-@pytest.fixture(scope="session", autouse=True)
+@pytest.fixture(scope="session")
+@pytest.mark.integration
 def clickhouse_container_config() -> Generator[ClickHouseConfig, None, None]:
     clickhouse = ClickHouseContainer(
         "clickhouse/clickhouse-server:25.4",

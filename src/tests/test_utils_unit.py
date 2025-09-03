@@ -1,6 +1,7 @@
 from pathlib import Path
 
 import pytest
+import toml
 
 from src.logger import LoggerType
 from src.schema import MigrationConfig
@@ -58,9 +59,8 @@ class TestMigrationDirectoryValidation:
         migration_dir.mkdir()
 
         # Create all required files
-        (migration_dir / "info.json").write_text(
-            '{"version": "abc123", "message": "create table"}'
-        )
+        with open(migration_dir / "info.toml", "w") as f:
+            toml.dump({"version": "abc123", "message": "create table"}, f)
         (migration_dir / "upgrade.sql").write_text("CREATE TABLE test();")
         (migration_dir / "downgrade.sql").write_text("DROP TABLE test;")
 
@@ -70,13 +70,13 @@ class TestMigrationDirectoryValidation:
     def test_is_valid_migration_directory_missing_info(
         self, tmp_path: Path, mock_logger: LoggerType
     ):
-        """Test validation fails when info.json is missing."""
+        """Test validation fails when info.toml is missing."""
         migration_dir = tmp_path / "abc123--create_table"
         migration_dir.mkdir()
 
         (migration_dir / "upgrade.sql").write_text("CREATE TABLE test();")
         (migration_dir / "downgrade.sql").write_text("DROP TABLE test;")
-        # info.json missing
+        # info.toml missing
 
         result = is_valid_migration_directory(migration_dir, mock_logger)
         assert result is False
@@ -88,7 +88,8 @@ class TestMigrationDirectoryValidation:
         migration_dir = tmp_path / "abc123--create_table"
         migration_dir.mkdir()
 
-        (migration_dir / "info.json").write_text('{"version": "abc123"}')
+        with open(migration_dir / "info.toml", "w") as f:
+            toml.dump({"version": "abc123"}, f)
         (migration_dir / "downgrade.sql").write_text("DROP TABLE test;")
         # upgrade.sql missing
 
@@ -102,7 +103,8 @@ class TestMigrationDirectoryValidation:
         migration_dir = tmp_path / "abc123--create_table"
         migration_dir.mkdir()
 
-        (migration_dir / "info.json").write_text('{"version": "abc123"}')
+        with open(migration_dir / "info.toml", "w") as f:
+            toml.dump({"version": "abc123"}, f)
         (migration_dir / "upgrade.sql").write_text("CREATE TABLE test();")
         # downgrade.sql missing
 
@@ -118,7 +120,8 @@ class TestMigrationDirectoryValidation:
         )  # Using '_' instead of '--'
         migration_dir.mkdir()
 
-        (migration_dir / "info.json").write_text('{"version": "abc123"}')
+        with open(migration_dir / "info.toml", "w") as f:
+            toml.dump({"version": "abc123"}, f)
         (migration_dir / "upgrade.sql").write_text("CREATE TABLE test();")
         (migration_dir / "downgrade.sql").write_text("DROP TABLE test;")
 

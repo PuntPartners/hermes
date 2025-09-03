@@ -1,0 +1,5 @@
+migrations-location = "versions"
+log-level = "info"
+log-to-file = true
+log-to-stream = true
+log-file-path = "hermes.log"

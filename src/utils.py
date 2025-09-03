@@ -1,8 +1,8 @@
-import tomllib
 import typing
 from pathlib import Path
 from typing import Literal
 
+import toml
 from asynch import Connection
 
 from src.schema import MigrationConfig
@@ -116,10 +116,10 @@ def is_valid_migration_directory(path: Path, logger: LoggerType) -> bool:
         )
         return False
 
-    info_file = path / "info.json"
+    info_file = path / "info.toml"
 
     if not info_file.is_file():
-        logger.warn("Migration directory is missing info.json", dir=str(path))
+        logger.warn("Migration directory is missing info.toml", dir=str(path))
         return False
 
     upgrade_file = path / "upgrade.sql"
@@ -147,8 +147,8 @@ def load_config(config_path: str) -> MigrationConfig:
     if not config_file.exists():
         raise FileNotFoundError(f"Config file not found: {config_path}")
 
-    with open(config_file, "rb") as f:
-        toml_data = tomllib.load(f)
+    with open(config_file, "r") as f:
+        toml_data = toml.load(f)
 
     return MigrationConfig.model_validate(toml_data)
 
